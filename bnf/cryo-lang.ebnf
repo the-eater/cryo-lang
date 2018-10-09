@@ -1,0 +1,184 @@
+@@grammar :: CryoLang
+@@whitespace :: /[\t ]+/
+@@comments :: /\/\*(.|\n)*\*\//
+@@eol_comments :: /(#|\/\/).*?\n/
+
+start
+    =
+    [ @:stmt_coll ] {nl} $
+    ;
+
+stmt_coll
+    =
+    @+:stmt {nl @+:stmt}
+    ;
+
+stmt
+    =
+    @:set_stmt | @:func_call | @:if_stmt | @:return_stmt
+    ;
+
+
+tokens
+    =
+    'true' | 'false' | 'null'
+    ;
+
+
+set_stmt
+    =
+    left:assg_path action:set_action right:expr_with_func
+    ;
+
+set_action
+    =
+    | '+='
+    | '='
+    ;
+
+
+obj_path
+    =
+    @+:keyword {@+:obj_leaf}
+    ;
+
+
+obj_leaf
+    =
+    '.' @:keyword | '[' @:expr ']'
+    ;
+
+
+keyword
+    =
+    /[a-zA-Z_][a-zA-Z0-9_]*/
+    ;
+
+
+nl
+    =
+    /\n+/
+    ;
+
+
+string
+    =
+    /('|")((?!\1|\\).|\\.)+\1/
+    ;
+
+
+digit
+    =
+    /-?(\d*\.)?\d+/
+    ;
+
+
+func_call
+    =
+    func:keyword '(' ~ {nl} [ args+:expr { comma_or_nl args+:expr} {nl}] ')'
+    ;
+
+
+arr
+    =
+    '[' {nl} @+:`""` [@+:arr_assg {comma_or_nl @+:arr_assg} {nl}] ']'
+    ;
+
+arr_assg
+    =
+    @:expr | @:arr_spread
+    ;
+
+arr_spread
+    =
+    '...' ~ @:(obj_path | arr)
+    ;
+
+obj
+    =
+    '{' {nl} [@+:obj_merge {comma_or_nl @+:obj_merge} {nl}] '}'
+    ;
+
+obj_merge
+    =
+    @:obj_spread | @:obj_kv
+    ;
+
+obj_kv
+    =
+    key:obj_key ':' val:expr | key:keyword | obj_spread
+    ;
+
+
+obj_spread
+    =
+    '...' ~ @:(obj_path | obj)
+    ;
+
+
+obj_key
+    =
+    string | obj_path | obj_key_expr
+    ;
+
+obj_key_expr
+    =
+    '[' @:expr ']'
+    ;
+
+obj_assg
+    =
+    '{' {nl} @+:obj_assg_to {comma_or_nl @+:obj_assg_to} {nl} '}'
+    ;
+
+
+obj_assg_to
+    =
+    obj_as | keyword | obj_assg_spread
+    ;
+
+obj_assg_spread
+    =
+    '...' @:obj_path
+    ;
+
+obj_as
+    =
+    origin:obj_path 'as' target:obj_path
+    ;
+
+
+assg_path
+    =
+    obj_path | obj_assg
+    ;
+
+
+expr_with_func
+    =
+    @:func_call | @:expr
+    ;
+
+
+expr
+    =
+    tokens | obj | obj_path | string | digit | arr
+    ;
+
+
+comma_or_nl
+    =
+    {nl}+ | {nl} ',' {nl}
+    ;
+
+
+if_stmt
+    =
+    'if' test:expr {nl}+ [then:stmt_coll] ['else' {nl}+ otherwise:stmt_coll] {nl} 'end'
+    ;
+
+
+return_stmt
+    =
+    'return' expr_with_func
+    ;
